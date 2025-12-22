@@ -27,3 +27,23 @@ spxt_ret.head(), spxt_ret.tail()
 
 #Rename the SPXT series#
 spxt_ret.name = "SPXT"
+
+#Repeat the same for Bond LUACTRUU#
+lu = pd.read_excel(file_path, sheet_name = "LUACTRUU Index")
+lu.head()
+
+lu_clean = lu[["Dates", "PX_LAST"]].copy()
+lu_clean["Dates"] = pd.to_datetime(lu_clean["Dates"])
+lu_clean = lu_clean.set_index("Dates")
+lu_clean = lu_clean.sort_index()
+lu_clean.head()
+
+lu_clean = lu_clean.loc["1989-09-01":"2025-09-30"]
+lu_clean.index.min(), lu_clean.index.max()
+
+lu_ret = lu_clean["PX_LAST"].pct_change().dropna()
+lu_ret.name = "LUACTRUU"
+
+lu_ret.head()
+
+lu_ret.tail()
