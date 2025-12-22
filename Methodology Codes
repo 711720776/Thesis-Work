@@ -1,5 +1,5 @@
 import pandas as pd
-
+#Reading file path#
 file_path = r"C:\Users\olich\OneDrive\Desktop\Master Thesis\Master Final Data.xlsx"
 
 xls = pd.ExcelFile(file_path)
@@ -7,13 +7,23 @@ xls.sheet_names
 
 spxt = pd.read_excel(file_path, sheet_name = "SPXT Index")
 spxt.head()
+
+#Clean the data with date set as date#
 spxt_clean = spxt[["Dates", "PX_LAST"]].copy()
 spxt_clean["Dates"] = pd.to_datetime(spxt_clean["Dates"])
 spxt_clean = spxt_clean.set_index("Dates")
 spxt_clean = spxt_clean.sort_index()
 spxt_clean.head()
 
+#Check the timeperiod and fix it from Sept. 1989 - Sept. 2025, 36 years of data#
 spxt_clean.index.min(),spxt_clean.index.max(),spxt_clean.index.to_series().diff().value_counts().head()
 
 spxt_clean = spxt_clean.loc["1989-09-01":"2025-09-30"]
 spxt_clean.index.min(), spxt_clean.index.max()
+
+#Calculate simple monthly return for SPXT#
+spxt_ret = spxt_clean["PX_LAST"].pct_change().dropna()
+spxt_ret.head(), spxt_ret.tail()
+
+#Rename the SPXT series#
+spxt_ret.name = "SPXT"
