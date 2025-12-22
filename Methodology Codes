@@ -4,3 +4,16 @@ file_path = r"C:\Users\olich\OneDrive\Desktop\Master Thesis\Master Final Data.xl
 
 xls = pd.ExcelFile(file_path)
 xls.sheet_names
+
+spxt = pd.read_excel(file_path, sheet_name = "SPXT Index")
+spxt.head()
+spxt_clean = spxt[["Dates", "PX_LAST"]].copy()
+spxt_clean["Dates"] = pd.to_datetime(spxt_clean["Dates"])
+spxt_clean = spxt_clean.set_index("Dates")
+spxt_clean = spxt_clean.sort_index()
+spxt_clean.head()
+
+spxt_clean.index.min(),spxt_clean.index.max(),spxt_clean.index.to_series().diff().value_counts().head()
+
+spxt_clean = spxt_clean.loc["1989-09-01":"2025-09-30"]
+spxt_clean.index.min(), spxt_clean.index.max()
