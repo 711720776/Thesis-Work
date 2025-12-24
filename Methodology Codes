@@ -8,27 +8,27 @@ xls.sheet_names
 spxt = pd.read_excel(file_path, sheet_name = "SPXT Index")
 spxt.head()
 
-#Clean the data with date set as date#
+#Clean the data with date set as date
 spxt_clean = spxt[["Dates", "PX_LAST"]].copy()
 spxt_clean["Dates"] = pd.to_datetime(spxt_clean["Dates"])
 spxt_clean = spxt_clean.set_index("Dates")
 spxt_clean = spxt_clean.sort_index()
 spxt_clean.head()
 
-#Check the timeperiod and fix it from Sept. 1989 - Sept. 2025, 36 years of data#
+#Check the timeperiod and fix it from Sept. 1989 - Sept. 2025, 36 years of data
 spxt_clean.index.min(),spxt_clean.index.max(),spxt_clean.index.to_series().diff().value_counts().head()
 
 spxt_clean = spxt_clean.loc["1989-09-01":"2025-09-30"]
 spxt_clean.index.min(), spxt_clean.index.max()
 
-#Calculate simple monthly return for SPXT#
+#Calculate simple monthly return for SPXT
 spxt_ret = spxt_clean["PX_LAST"].pct_change().dropna()
 spxt_ret.head(), spxt_ret.tail()
 
-#Rename the SPXT series#
+#Rename the SPXT series
 spxt_ret.name = "SPXT"
 
-#Repeat the same for Bond LUACTRUU#
+#Repeat the same for Bond LUACTRUU
 lu = pd.read_excel(file_path, sheet_name = "LUACTRUU Index")
 lu.head()
 
@@ -48,7 +48,7 @@ lu_ret.head()
 
 lu_ret.tail()
 
-#Repeat the same for Bond FDTR#
+#Repeat the same for Bond FDTR
 fdtr = pd.read_excel(file_path, sheet_name = "FDTR Index")
 fdtr.head()
 
@@ -63,3 +63,44 @@ fdtr_clean.index.min(), fdtr_clean.index.max(), fdtr_clean.head()
 fdtr_ret = (1 + fdtr_clean["PX_LAST"] / 100) ** (1/12) - 1
 fdtr_ret.name = "RF"
 fdtr_ret.head(), fdtr_ret.tail()
+
+#Repeat the same for FNER
+fner = pd.read_excel(file_path, sheet_name="FNER Index")
+fner.head()
+
+fner_clean = fner[["Dates", "PX_LAST"]].copy()
+fner_clean["Dates"] = pd.to_datetime(fner_clean["Dates"])
+fner_clean = fner_clean.set_index("Dates").sort_index()
+
+fner_clean.head()
+
+fner_clean = fner_clean.loc["1989-09-01":"2025-09-30"]
+
+fner_clean.index.min(), fner_clean.index.max()
+
+fner_ret = fner_clean["PX_LAST"].pct_change().dropna()
+
+fner_ret.name = "FNER"
+
+fner_ret.head(), fner_ret.tail()
+
+#Repeat the same for SPGCCITR
+spgccitr = pd.read_excel(file_path, sheet_name="SPGCCITR Index")
+spgccitr.head()
+
+spgccitr_clean = spgccitr[["Dates", "PX_LAST"]].copy()
+
+spgccitr_clean["Dates"] = pd.to_datetime(spgccitr_clean["Dates"])
+spgccitr_clean = spgccitr_clean.set_index("Dates").sort_index()
+
+spgccitr_clean.head()
+
+spgccitr_clean = spgccitr_clean.loc["1989-09-01":"2025-09-30"]
+
+spgccitr_clean.index.min(), spgccitr_clean.index.max()
+
+spgccitr_ret = spgccitr_clean["PX_LAST"].pct_change().dropna()
+
+spgccitr_ret.name = "SPGCCITR"
+
+spgccitr_ret.head(), spgccitr_ret.tail()
