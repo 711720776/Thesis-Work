@@ -47,3 +47,19 @@ lu_ret.name = "LUACTRUU"
 lu_ret.head()
 
 lu_ret.tail()
+
+#Repeat the same for Bond FDTR#
+fdtr = pd.read_excel(file_path, sheet_name = "FDTR Index")
+fdtr.head()
+
+fdtr_clean = fdtr[["Dates", "PX_LAST"]].copy()
+fdtr_clean["Dates"] = pd.to_datetime(fdtr_clean["Dates"])
+fdtr_clean = fdtr_clean.set_index("Dates").sort_index()
+
+fdtr_clean = fdtr_clean.loc["1989-09-01":"2025-09-30"]
+
+fdtr_clean.index.min(), fdtr_clean.index.max(), fdtr_clean.head()
+#Convert annualiazed rate into Monthly compounded returns#
+fdtr_ret = (1 + fdtr_clean["PX_LAST"] / 100) ** (1/12) - 1
+fdtr_ret.name = "RF"
+fdtr_ret.head(), fdtr_ret.tail()
