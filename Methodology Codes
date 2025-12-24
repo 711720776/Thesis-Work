@@ -104,3 +104,15 @@ spgccitr_ret = spgccitr_clean["PX_LAST"].pct_change().dropna()
 spgccitr_ret.name = "SPGCCITR"
 
 spgccitr_ret.head(), spgccitr_ret.tail()
+
+#Combine all return series into a dataframe
+returns_core = pd.concat(
+    [spxt_ret, lu_ret, fdtr_ret, fner_ret, spgccitr_ret],
+    axis=1
+)
+
+#Drop the first missing values
+returns_core = returns_core.dropna()
+
+returns_core.head(), returns_core.tail()
+returns_core.head(), returns_core.tail()
