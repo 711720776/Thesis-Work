@@ -116,3 +116,20 @@ returns_core = returns_core.dropna()
 
 returns_core.head(), returns_core.tail()
 returns_core.head(), returns_core.tail()
+
+#Calculate monthly statistics
+summary_stats = pd.DataFrame({
+    "Mean": returns_core.mean(),
+    "Std": returns_core.std(),
+    "Sharpe": returns_core.mean() / returns_core.std()
+})
+
+#Calculate annual statistics
+summary_stats_ann = pd.DataFrame({
+    "Mean (ann)": returns_core.mean() * 12,
+    "Std (ann)": returns_core.std() * (12 ** 0.5),
+    "Sharpe": (returns_core.mean() / returns_core.std()) * (12 ** 0.5)
+})
+
+summary_stats_ann
+summary_stats
