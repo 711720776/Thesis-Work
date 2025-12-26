@@ -137,3 +137,90 @@ summary_stats
 #Calculate correlations of asset classes
 corr_matrix = returns_core.corr()
 corr_matrix
+
+# Compute Mean returns vector and covariance
+import numpy as np
+mu = returns_core.mean().values
+Sigma = returns_core.cov().values
+
+#Invert covariance matrix and create vectors of 1
+Sigma_inv = np.linalg.inv(Sigma)
+ones = np.ones(len(mu))
+w_gmv = Sigma_inv @ ones / (ones @ Sigma_inv @ ones)
+
+#Compute Global Minimum Variance Portfolio Weights
+gmv_weights = pd.Series(w_gmv, index = returns_core.columns)
+gmv_weights
+
+from scipy.optimize import minimize
+import numpy as np
+
+#Calculating returns with and without commodities
+returns_jensen_base = returns_core[["SPXT", "LUACTRUU", "FNER", "RF"]]          
+returns_jensen_with = returns_core[["SPXT", "LUACTRUU", "FNER", "RF", "SPGCCITR"]] 
+
+returns_jensen_base.columns, returns_jensen_with.columns
+
+#Define Efficient Frontier with 30 points
+def compute_frontier_no_short(returns_df, n_points=30):
+    mu = returns_df.mean().values
+    Sigma = returns_df.cov().values
+    n = len(mu)
+
+#Initial guess and constraint no short selling
+    w0 = np.ones(n) / n
+    bounds = tuple((0, 1) for _ in range(n))
+
+#define portfolio variance and create target returns
+    def var_obj(w):
+        return w.T @ Sigma @ w
+
+    target_grid = np.linspace(mu.min(), mu.max(), n_points)
+
+    vol = []
+    ret = []
+
+#Include constraints in the loop
+    for target in target_grid:
+        cons = (
+            {"type": "eq", "fun": lambda w: np.sum(w) - 1},
+            {"type": "eq", "fun": lambda w, target=target: w @ mu - target},
+        )
+
+#Optimize portfolio variance
+        res = minimize(var_obj, w0, method="SLSQP", bounds=bounds, constraints=cons)
+
+        if res.success:
+            vol.append(np.sqrt(res.fun))
+            ret.append(target)
+
+    return np.array(vol), np.array(ret)
+
+#Compute Efficient Frontier with and without commodities
+vol_base_m, ret_base_m = compute_frontier_no_short(returns_jensen_base, n_points=30)
+vol_with_m, ret_with_m = compute_frontier_no_short(returns_jensen_with, n_points=30)
+
+#Annualize the std. and return
+vol_base_ann = vol_base_m * np.sqrt(12)
+ret_base_ann = ret_base_m * 12
+vol_with_ann = vol_with_m * np.sqrt(12)
+ret_with_ann = ret_with_m * 12
+
+#Plot the Efficient Frontier
+import matplotlib.pyplot as plt
+
+fig, ax = plt.subplots(figsize=(8, 6))
+
+ax.plot(vol_base_ann * 100, ret_base_ann * 100, marker="o", linestyle="-",
+        label="Frontier: Stocks, Corp Bonds, REITs, T-bills")
+ax.plot(vol_with_ann * 100, ret_with_ann * 100, marker="o", linestyle="-",
+        label="Frontier: + Commodity Futures")
+
+ax.set_xlabel("Standard Deviation (%)")
+ax.set_ylabel("Expected Return (%)")
+ax.set_title("Efficient Frontiers (No Short Selling, Annualized)")
+ax.legend()
+ax.grid(True)
+
+fig.savefig("efficient_frontier_comparison.png", dpi=300, bbox_inches="tight")
+plt.show()
