@@ -151,3 +151,135 @@ w_gmv = Sigma_inv @ ones / (ones @ Sigma_inv @ ones)
 #Compute Global Minimum Variance Portfolio Weights
 gmv_weights = pd.Series(w_gmv, index = returns_core.columns)
 gmv_weights
+
+#Exclude risk free asset from the Universe for now
+returns_risky = returns_core.drop(columns=["RF"])
+returns_risky.columns
+
+#
+from scipy.optimize import minimize
+import numpy as np
+
+#Calculate covariance matrix
+Sigma_risky = returns_risky.cov().values
+n = Sigma_risky.shape[0]
+
+#Define portfolio variance
+def portfolio_variance(w, Sigma):
+    return w.T @ Sigma @ w
+
+#Define contraints no short selling & fully invested portfolio
+constraints = (
+    {"type": "eq", "fun": lambda w: np.sum(w) - 1},
+)
+
+bounds = tuple((0, 1) for _ in range(n))
+
+#Equal weights for initial guess
+w0 = np.ones(n) / n
+
+#Optimize global minimum variance portfolio
+res_gmv = minimize(
+    portfolio_variance,
+    w0,
+    args=(Sigma_risky,),
+    method="SLSQP",
+    bounds=bounds,
+    constraints=constraints
+)
+
+gmv_weights_constrained = pd.Series(
+    res_gmv.x, index=returns_risky.columns
+)
+
+gmv_weights_constrained
+
+#Define Efficient Frontier
+mu_risky = returns_risky.mean().values
+
+#Return grid
+target_returns = np.linspace(mu_risky.min(), mu_risky.max(), 30)
+
+frontier_vol = []
+frontier_ret = []
+
+for target in target_returns:
+    constraints = (
+        {"type": "eq", "fun": lambda w: np.sum(w) - 1},
+        {"type": "eq", "fun": lambda w, target=target: w @ mu_risky - target},
+    )
+
+    res = minimize(
+        portfolio_variance,
+        w0,
+        args=(Sigma_risky,),
+        method="SLSQP",
+        bounds=bounds,
+        constraints=constraints
+    )
+
+    if res.success:
+        frontier_vol.append(np.sqrt(res.fun))
+        frontier_ret.append(target)
+
+frontier_vol = np.array(frontier_vol)
+frontier_ret = np.array(frontier_ret)
+
+#Plot image of Efficient Frontier
+import matplotlib.pyplot as plt
+
+plt.figure(figsize=(8, 6))
+plt.plot(frontier_vol, frontier_ret, marker="o", linestyle="-", label="Efficient Frontier")
+
+plt.xlabel("Portfolio Volatility (Std Dev)")
+plt.ylabel("Expected Return")
+plt.title("Efficient Frontier (No Short Selling, Risky Assets)")
+plt.legend()
+plt.grid(True)
+
+plt.savefig("efficient_frontier_jensen.png", dpi=300, bbox_inches="tight")
+plt.show()
+
+#Drop risk free asset and commodities
+returns_risky_nocom = returns_core.drop(columns=["RF", "SPGCCITR"])
+returns_risky_nocom.columns
+
+
+# Calculate mean & Covariance with excluding commodities
+mu_nocom = returns_risky_nocom.mean().values
+Sigma_nocom = returns_risky_nocom.cov().values
+n_nocom = Sigma_nocom.shape[0]
+
+#Equal initial guess
+w0_nocom = np.ones(n_nocom) / n_nocom
+
+#Create contraint with no short selling and fully invested
+bounds_nocom = tuple((0, 1) for _ in range(n_nocom))
+
+#Return grid
+target_returns_nocom = np.linspace(mu_nocom.min(), mu_nocom.max(), 30)
+
+frontier_vol_nocom = []
+frontier_ret_nocom = []
+
+for target in target_returns_nocom:
+    constraints_nocom = (
+        {"type": "eq", "fun": lambda w: np.sum(w) - 1},
+        {"type": "eq", "fun": lambda w, target=target: w @ mu_nocom - target},
+    )
+
+    res = minimize(
+        portfolio_variance,
+        w0_nocom,
+        args=(Sigma_nocom,),
+        method="SLSQP",
+        bounds=bounds_nocom,
+        constraints=constraints_nocom
+    )
+
+    if res.success:
+        frontier_vol_nocom.append(np.sqrt(res.fun))
+        frontier_ret_nocom.append(target)
+
+frontier_vol_nocom = np.array(frontier_vol_nocom)
+frontier_ret_nocom = np.array(frontier_ret_nocom)
