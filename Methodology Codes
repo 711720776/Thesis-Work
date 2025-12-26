@@ -133,3 +133,21 @@ summary_stats_ann = pd.DataFrame({
 
 summary_stats_ann
 summary_stats
+
+#Calculate correlations of asset classes
+corr_matrix = returns_core.corr()
+corr_matrix
+
+# Compute Mean returns vector and covariance
+import numpy as np
+mu = returns_core.mean().values
+Sigma = returns_core.cov().values
+
+#Invert covariance matrix and create vectors of 1
+Sigma_inv = np.linalg.inv(Sigma)
+ones = np.ones(len(mu))
+w_gmv = Sigma_inv @ ones / (ones @ Sigma_inv @ ones)
+
+#Compute Global Minimum Variance Portfolio Weights
+gmv_weights = pd.Series(w_gmv, index = returns_core.columns)
+gmv_weights
