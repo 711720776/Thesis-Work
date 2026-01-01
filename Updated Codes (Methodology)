@@ -340,7 +340,7 @@ Test_diff = pd.DataFrame(
 
 Test_diff
 
-#Check for T-test and F-test for Return and Std.
+#Check for T-test and F-test for Return and Std. for Table representation
 Test_diff_fmt = Test_diff.copy()
 
 Test_diff_fmt["Diff Mean (%) (Res-Exp)"] = Test_diff_fmt.apply(
