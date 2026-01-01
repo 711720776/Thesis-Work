@@ -238,3 +238,38 @@ fed_clean = fed_clean.set_index("Dates").sort_index()
 fed_clean = fed_clean.loc["1989-09-01":"2025-09-30"].dropna()
 
 fed_clean.index.min(), fed_clean.index.max(), fed_clean.head()
+
+#Finding the policy rate changes with difference from previous period
+fed_clean["d_rate"] = fed_clean["PX_LAST"].diff()
+
+#Creating binary indicator for Expansionary and Restrictive Monetary Policy
+fed_clean["restrictive"] = (fed_clean["d_rate"] > 0).astype(int)
+
+fed_clean[["PX_LAST", "d_rate", "restrictive"]].head(10)
+
+#Define Regime with Binary Variable
+regime = fed_clean[["restrictive"]]
+
+#Convert returns to monthly figures for alignment with Regime
+returns_regime_m = returns_core.copy()
+returns_regime_m.index = returns_regime_m.index.to_period("M")
+
+fed_regime_m = fed_clean.copy()
+fed_regime_m.index = fed_regime_m.index.to_period("M")
+
+#Merge regime with return of asset classes
+returns_regime_m = returns_regime_m.merge(
+    fed_regime_m[["restrictive"]],
+    left_index=True,
+    right_index=True,
+    how="inner"
+)
+
+returns_regime_m.head(), returns_regime_m.shape
+
+#Segregate returns data into Expansionary and Restrictive periods
+returns_exp = returns_regime_m[returns_regime_m["restrictive"] == 0].drop(columns=["restrictive"])
+returns_res = returns_regime_m[returns_regime_m["restrictive"] == 1].drop(columns=["restrictive"])
+
+returns_exp.shape, returns_res.shape
+
