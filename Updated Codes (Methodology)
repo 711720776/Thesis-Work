@@ -273,3 +273,82 @@ returns_res = returns_regime_m[returns_regime_m["restrictive"] == 1].drop(column
 
 returns_exp.shape, returns_res.shape
 
+#Compute statistics for expansionary periods
+mean_exp = returns_exp.mean()
+std_exp  = returns_exp.std()
+
+stats_exp = pd.DataFrame({
+    "Mean": mean_exp,
+    "Std": std_exp,
+    "CoV": std_exp / mean_exp,                 
+    "Sharpe": mean_exp / std_exp               
+})
+
+#Compute statistics for restrictive periods
+mean_res = returns_res.mean()
+std_res  = returns_res.std()
+
+stats_res = pd.DataFrame({
+    "Mean": mean_res,
+    "Std": std_res,
+    "CoV": std_res / mean_res,
+    "Sharpe": mean_res / std_res
+})
+
+#Multiply Mean and Std by 100 to produce the same table - 2 as the paper
+stats_exp_pct = stats_exp.copy()
+stats_res_pct = stats_res.copy()
+
+stats_exp_pct[["Mean", "Std"]] = stats_exp_pct[["Mean", "Std"]] * 100
+stats_res_pct[["Mean", "Std"]] = stats_res_pct[["Mean", "Std"]] * 100
+
+stats_exp_pct, stats_res_pct
+
+#Calculate correlations for the different periods
+corr_exp = returns_exp.corr()
+corr_res = returns_res.corr()
+corr_exp, corr_res
+
+# Test difference for Returns and Risk across Monetary Environments
+from scipy import stats
+import numpy as np
+import pandas as pd
+
+assets = ["SPXT", "LUACTRUU", "RF", "FNER", "SPGCCITR"]
+
+rows = []
+for a in assets:
+    x = returns_exp[a].dropna()
+    y = returns_res[a].dropna()
+
+    # Difference in mean monthly returns (%)
+    diff_mean_pct = (y.mean() - x.mean()) * 100
+
+    # Welch t-test for difference in means 
+    t_stat, p_val = stats.ttest_ind(y, x, equal_var=False, nan_policy="omit")
+
+    # F-test for difference in variances
+    f_stat = (y.var(ddof=1) / x.var(ddof=1))
+
+    rows.append([diff_mean_pct, t_stat, p_val, f_stat])
+
+Test_diff = pd.DataFrame(
+    rows,
+    index=assets,
+    columns=["Diff Mean (%) (Res-Exp)", "t-stat", "p-value", "F-stat (Var Res / Var Exp)"]
+)
+
+Test_diff
+
+#Check for T-test and F-test for Return and Std.
+Test_diff_fmt = Test_diff.copy()
+
+Test_diff_fmt["Diff Mean (%) (Res-Exp)"] = Test_diff_fmt.apply(
+    lambda r: f"{r['Diff Mean (%) (Res-Exp)']:.4f}" + ("*" if r["p-value"] < 0.05 else ""),
+    axis=1
+)
+
+Test_diff_fmt["t-stat"] = Test_diff_fmt["t-stat"].map(lambda x: f"{x:.2f}")
+Test_diff_fmt["F-stat (Var Res / Var Exp)"] = Test_diff_fmt["F-stat (Var Res / Var Exp)"].map(lambda x: f"{x:.3f}")
+
+Test_diff_fmt
