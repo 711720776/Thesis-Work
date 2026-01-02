@@ -352,3 +352,182 @@ Test_diff_fmt["t-stat"] = Test_diff_fmt["t-stat"].map(lambda x: f"{x:.2f}")
 Test_diff_fmt["F-stat (Var Res / Var Exp)"] = Test_diff_fmt["F-stat (Var Res / Var Exp)"].map(lambda x: f"{x:.3f}")
 
 Test_diff_fmt
+
+#Compute efficient frontiers with expansionary and restrictive periods with and without commodities
+exp_base  = returns_exp[["SPXT", "LUACTRUU", "FNER", "RF"]]
+exp_with  = returns_exp[["SPXT", "LUACTRUU", "FNER", "RF", "SPGCCITR"]]
+
+res_base  = returns_res[["SPXT", "LUACTRUU", "FNER", "RF"]]
+res_with  = returns_res[["SPXT", "LUACTRUU", "FNER", "RF", "SPGCCITR"]]
+
+vol_exp_base_m, ret_exp_base_m = compute_frontier_no_short(exp_base, n_points=30)
+vol_exp_with_m, ret_exp_with_m = compute_frontier_no_short(exp_with, n_points=30)
+
+vol_res_base_m, ret_res_base_m = compute_frontier_no_short(res_base, n_points=30)
+vol_res_with_m, ret_res_with_m = compute_frontier_no_short(res_with, n_points=30)
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+def annualize_frontier(vol_m, ret_m):
+    vol_a = vol_m * np.sqrt(12)
+    ret_a = ret_m * 12
+    return vol_a, ret_a
+
+vol_exp_base_a, ret_exp_base_a = annualize_frontier(vol_exp_base_m, ret_exp_base_m)
+vol_exp_with_a, ret_exp_with_a = annualize_frontier(vol_exp_with_m, ret_exp_with_m)
+
+vol_res_base_a, ret_res_base_a = annualize_frontier(vol_res_base_m, ret_res_base_m)
+vol_res_with_a, ret_res_with_a = annualize_frontier(vol_res_with_m, ret_res_with_m)
+
+fig1, ax1 = plt.subplots(figsize=(8, 6))
+ax1.plot(vol_exp_base_a*100, ret_exp_base_a*100, marker="o", label="No Futures")
+ax1.plot(vol_exp_with_a*100, ret_exp_with_a*100, marker="o", label="+ Futures")
+ax1.set_xlabel("Standard Deviation (%)")
+ax1.set_ylabel("Expected Return (%)")
+ax1.set_title("Efficient Frontiers – Expansionary Periods (Annualized)")
+ax1.legend()
+ax1.grid(True)
+fig1.savefig("frontier_expansionary.png", dpi=300, bbox_inches="tight")
+plt.show()
+
+fig2, ax2 = plt.subplots(figsize=(8, 6))
+ax2.plot(vol_res_base_a*100, ret_res_base_a*100, marker="o", label="No Futures")
+ax2.plot(vol_res_with_a*100, ret_res_with_a*100, marker="o", label="+ Futures")
+ax2.set_xlabel("Standard Deviation (%)")
+ax2.set_ylabel("Expected Return (%)")
+ax2.set_title("Efficient Frontiers – Restrictive Periods (Annualized)")
+ax2.legend()
+ax2.grid(True)
+fig2.savefig("frontier_restrictive.png", dpi=300, bbox_inches="tight")
+plt.show()
+
+#Calculate Optimal Weights of Portfolio without differentiating the monetary periods
+import numpy as np
+import pandas as pd
+from scipy.optimize import minimize
+
+R = returns_jensen_with.copy()   
+mu = R.mean().values
+Sigma = R.cov().values
+assets = R.columns.tolist()
+n = len(assets)
+
+def max_return_given_vol(target_vol):
+    # maximize w@mu subject to: sum(w)=1, w>=0, sqrt(w'Σw)=target_vol
+    w0 = np.ones(n) / n
+    bounds = [(0, 1)] * n
+
+    def obj(w):
+        return -(w @ mu)  # maximize return
+
+    cons = [
+        {"type": "eq", "fun": lambda w: np.sum(w) - 1},
+        {"type": "eq", "fun": lambda w, tv=target_vol: (w.T @ Sigma @ w) - tv**2},
+    ]
+
+    res = minimize(obj, w0, method="SLSQP", bounds=bounds, constraints=cons)
+    return res
+
+
+# Keeping the target Std from 0.5 to 4.0
+target_vols_pct = np.arange(0.5, 4.0 + 0.5, 0.5)     # 0.5% to 4.0%
+target_vols = target_vols_pct / 100                  # convert to decimals
+
+rows = []
+for tv_pct, tv in zip(target_vols_pct, target_vols):
+    res = max_return_given_vol(tv)
+
+    if res.success:
+        w = res.x
+        port_ret = w @ mu
+        rows.append([tv_pct, port_ret * 100] + list(w * 100))  # return in %, weights in %
+    else:
+        rows.append([tv_pct, np.nan] + [np.nan] * n)
+
+PW = pd.DataFrame(rows, columns=["Portfolio Std Dev (%)", "Expected Return (%)"] + assets)
+PW
+
+
+# Check whether the portfolio weights sum to 1
+PW["Weight Sum (%)"] = PW[assets].sum(axis=1)
+min_w = PW[assets].min().min()
+max_w = PW[assets].max().max()
+
+#Rounding the wieghts to 2 decimal places
+PW_clean = PW.copy()
+num_cols = PW_clean.columns  # all are numeric here
+
+PW_clean[num_cols] = PW_clean[num_cols].applymap(lambda x: 0 if abs(x) < 1e-10 else x)
+
+PW_round = PW_clean.round(2)
+
+# Comparing the same without any commodity futures portfolio
+R_nf = returns_jensen_base.copy()   # SPXT, LUACTRUU, FNER, RF
+mu_nf = R_nf.mean().values
+Sigma_nf = R_nf.cov().values
+assets_nf = R_nf.columns.tolist()
+n_nf = len(assets_nf)
+
+def max_return_given_vol_nf(target_vol):
+    w0 = np.ones(n_nf) / n_nf
+    bounds = [(0, 1)] * n_nf
+
+    def obj(w):
+        return -(w @ mu_nf)
+
+    cons = [
+        {"type": "eq", "fun": lambda w: np.sum(w) - 1},
+        {"type": "eq", "fun": lambda w, tv=target_vol: (w.T @ Sigma_nf @ w) - tv**2},
+    ]
+
+    return minimize(obj, w0, method="SLSQP", bounds=bounds, constraints=cons)
+
+rows_nf = []
+for tv_pct, tv in zip(target_vols_pct, target_vols):
+    res = max_return_given_vol_nf(tv)
+
+    if res.success:
+        w = res.x
+        port_ret = w @ mu_nf
+        rows_nf.append([tv_pct, port_ret * 100] + list(w * 100))
+    else:
+        rows_nf.append([tv_pct, np.nan] + [np.nan] * n_nf)
+
+PW_nf = pd.DataFrame(rows_nf, columns=["Portfolio Std Dev (%)", "Expected Return (%)"] + assets_nf)
+
+# Clean numbers and round up
+PW_nf = PW_nf.applymap(lambda x: 0 if pd.notnull(x) and abs(x) < 1e-10 else x).round(2)
+PW_nf["Weight Sum (%)"] = PW_nf[assets_nf].sum(axis=1)
+
+PW_nf
+
+PW_round
+
+PW[["Portfolio Std Dev (%)", "Expected Return (%)", "Weight Sum (%)"]], (min_w, max_w)
+
+
+#Compute the incremental Commodity Futures weight
+#Align portfolio by Std
+A = PW_round.set_index("Portfolio Std Dev (%)")
+B = PW_nf.set_index("Portfolio Std Dev (%)")
+
+#Keeping weights
+w_with = A[["SPXT","LUACTRUU","FNER","RF","SPGCCITR"]].copy()
+w_nof  = B[["SPXT","LUACTRUU","FNER","RF"]].copy()
+
+#compare portfolio with and without commodity futures 
+delta_common = w_with[["SPXT","LUACTRUU","FNER","RF"]] - w_nof
+
+#Build a comparison table
+comp = pd.concat(
+    [
+        w_nof.add_prefix("NoFut_"),
+        w_with.add_prefix("WithFut_"),
+        delta_common.add_prefix("Delta_"),
+        w_with[["SPGCCITR"]].rename(columns={"SPGCCITR":"Futures_Weight"})
+    ],
+    axis=1
+).round(2)
+
+comp
